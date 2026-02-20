@@ -17,21 +17,28 @@
   the iteration process.
 -->
 
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [single/web/mobile - determines source structure]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Language/Version**: Python 3.11+ (specify if deviating)  
+**Primary Dependencies**: FastAPI, SQLAlchemy, Pydantic, requests  
+**Storage**: PostgreSQL (required)  
+**Testing**: pytest  
+**Target Platform**: Linux containerized service runtime
+**Project Type**: Backend API service  
+**Performance Goals**: [e.g., ingestion batch throughput, summary endpoint p95 latency]  
+**Constraints**: Idempotent ingestion, UTC timestamps, consistent JSON contracts, no secret logging  
+**Scale/Scope**: [expected client/pipeline volume and runs per day]
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- [ ] Scope remains within `clients`, `pipelines`, `runs`, and `alert_rules`; any expansion is justified for a key workflow.
+- [ ] Ingestion design enforces idempotency with stable dedupe keys and upsert behavior.
+- [ ] Run history is preserved as events over time; no latest-status overwrite design.
+- [ ] API contracts define request/response schemas, validation errors, filtering, and pagination.
+- [ ] Grafana time-series outputs and Metabase exploration outputs are identified (query/view/table plan).
+- [ ] Database integrity plan includes FKs, uniqueness constraints, allowed statuses, and migration impact.
+- [ ] Test plan includes ingestion idempotency/mapping, summary endpoints, and CRUD smoke coverage.
+- [ ] Security and reproducibility plan covers least-privilege secrets plus local Postgres/Grafana/Metabase startup.
 
 ## Project Structure
 

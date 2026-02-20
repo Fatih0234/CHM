@@ -1,0 +1,12 @@
+# Local Codex runtime/auth state (contains secrets/tokens/sessions)
+.codex/
+
+# Local environment secrets
+.env
+.env.*
+!.env.example
+
+# Local Python/tool caches
+__pycache__/
+.pytest_cache/
+.ruff_cache/

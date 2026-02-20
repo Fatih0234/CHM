@@ -84,11 +84,11 @@
 
 ### Functional Requirements
 
-- **FR-001**: System MUST [specific capability, e.g., "allow users to create accounts"]
-- **FR-002**: System MUST [specific capability, e.g., "validate email addresses"]  
-- **FR-003**: Users MUST be able to [key interaction, e.g., "reset their password"]
-- **FR-004**: System MUST [data requirement, e.g., "persist user preferences"]
-- **FR-005**: System MUST [behavior, e.g., "log all security events"]
+- **FR-001**: System MUST [ingest/store/serve behavior tied to `clients`, `pipelines`, `runs`, or `alert_rules`]
+- **FR-002**: System MUST [preserve run history as timestamped events, not status overwrite]
+- **FR-003**: System MUST [support idempotent ingestion with stable dedupe keys]
+- **FR-004**: System MUST [expose consistent API contracts with explicit validation behavior]
+- **FR-005**: System MUST [enforce integrity constraints and required security controls]
 
 *Example of marking unclear requirements:*
 
@@ -100,6 +100,32 @@
 - **[Entity 1]**: [What it represents, key attributes without implementation]
 - **[Entity 2]**: [What it represents, relationships to other entities]
 
+### Data Integrity & Invariants *(mandatory for data changes)*
+
+- **DI-001**: [List uniqueness/identity rules, e.g., `pipeline_id + external_run_id`]
+- **DI-002**: [List required foreign keys and delete/update behavior]
+- **DI-003**: [List allowed enums/status values and validation boundaries]
+- **DI-004**: [State migration/backfill and compatibility expectations]
+
+### API Contracts & Query Patterns *(mandatory for endpoint changes)*
+
+- **AC-001**: [Request schema changes and validation rules]
+- **AC-002**: [Response schema and error envelope consistency]
+- **AC-003**: [Filtering, sorting, and pagination behavior]
+- **AC-004**: [Backward-compatibility expectations for existing clients]
+
+### Observability & BI Outputs *(mandatory for reporting-impacting work)*
+
+- **OB-001**: [Time-series output needed for Grafana, including timestamp/source fields]
+- **OB-002**: [Exploration/reporting output needed for Metabase]
+- **OB-003**: [Any required SQL view/materialization and refresh expectations]
+
+### Security & Environment Scope *(mandatory)*
+
+- **SE-001**: [Secrets/tokens used and how they remain least-privilege]
+- **SE-002**: [Environment scope impact: dev/stage/prod]
+- **SE-003**: [Explicit confirmation that logs/metrics avoid secret leakage]
+
 ## Success Criteria *(mandatory)*
 
 <!--
@@ -110,6 +136,6 @@
 ### Measurable Outcomes
 
 - **SC-001**: [Measurable metric, e.g., "Users can complete account creation in under 2 minutes"]
-- **SC-002**: [Measurable metric, e.g., "System handles 1000 concurrent users without degradation"]
-- **SC-003**: [User satisfaction metric, e.g., "90% of users successfully complete primary task on first attempt"]
-- **SC-004**: [Business metric, e.g., "Reduce support tickets related to [X] by 50%"]
+- **SC-002**: [Measurable ingestion correctness target, e.g., "duplicate re-ingestion creates 0 duplicate runs"]
+- **SC-003**: [Measurable API/summary target, e.g., "client health endpoint p95 < 250ms for target dataset"]
+- **SC-004**: [Measurable observability/reporting target, e.g., "Grafana and Metabase queries return expected aggregates"]

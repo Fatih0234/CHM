@@ -1,0 +1,814 @@
+openapi: 3.0.3
+info:
+  title: CHM API
+  version: 0.1.0
+  description: |
+    Contract for CHM inventory, run history, ingestion-facing run writes, summary queries,
+    and alert rule configuration.
+servers:
+  - url: /api/v1
+paths:
+  /clients:
+    post:
+      summary: Create client
+      operationId: createClient
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientCreate'
+      responses:
+        '201':
+          description: Client created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+    get:
+      summary: List clients
+      operationId: listClients
+      parameters:
+        - in: query
+          name: is_active
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Clients list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Client'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /clients/{client_id}:
+    parameters:
+      - $ref: '#/components/parameters/ClientId'
+    get:
+      summary: Get client
+      operationId: getClient
+      responses:
+        '200':
+          description: Client
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+    patch:
+      summary: Update client
+      operationId: updateClient
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientUpdate'
+      responses:
+        '200':
+          description: Updated client
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+    delete:
+      summary: Disable client (soft delete)
+      operationId: deleteClient
+      responses:
+        '204':
+          description: Client disabled
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /clients/{client_id}/pipelines:
+    parameters:
+      - $ref: '#/components/parameters/ClientId'
+    post:
+      summary: Create pipeline under client
+      operationId: createPipeline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PipelineCreate'
+      responses:
+        '201':
+          description: Pipeline created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pipeline'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+    get:
+      summary: List client pipelines
+      operationId: listClientPipelines
+      parameters:
+        - in: query
+          name: is_active
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Pipelines list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Pipeline'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /pipelines/{pipeline_id}:
+    parameters:
+      - $ref: '#/components/parameters/PipelineId'
+    get:
+      summary: Get pipeline
+      operationId: getPipeline
+      responses:
+        '200':
+          description: Pipeline
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pipeline'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+    patch:
+      summary: Update pipeline
+      operationId: updatePipeline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PipelineUpdate'
+      responses:
+        '200':
+          description: Updated pipeline
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pipeline'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /pipelines/{pipeline_id}/runs:
+    parameters:
+      - $ref: '#/components/parameters/PipelineId'
+    post:
+      summary: Create run (manual)
+      operationId: createRun
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunCreate'
+      responses:
+        '201':
+          description: Run created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Run'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+    get:
+      summary: List runs for pipeline
+      operationId: listPipelineRuns
+      parameters:
+        - in: query
+          name: status
+          schema:
+            $ref: '#/components/schemas/RunStatus'
+        - in: query
+          name: since
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: until
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+        - in: query
+          name: order
+          schema:
+            type: string
+            enum: [desc, asc]
+            default: desc
+      responses:
+        '200':
+          description: Runs list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Run'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /pipelines/{pipeline_id}/runs/latest:
+    parameters:
+      - $ref: '#/components/parameters/PipelineId'
+    get:
+      summary: Get latest run for pipeline
+      description: |
+        Latest run ordering is started_at desc, then finished_at desc, then id desc;
+        null timestamps sort last.
+      operationId: getLatestPipelineRun
+      responses:
+        '200':
+          description: Latest run
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Run'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /clients/{client_id}/runs/summary:
+    parameters:
+      - $ref: '#/components/parameters/ClientId'
+      - in: query
+        name: since
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: until
+        schema:
+          type: string
+          format: date-time
+    get:
+      summary: Get client run summary
+      operationId: getClientRunSummary
+      responses:
+        '200':
+          description: Run summary for client
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientRunSummary'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /alert_rules:
+    post:
+      summary: Create alert rule
+      operationId: createAlertRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertRuleCreate'
+      responses:
+        '201':
+          description: Alert rule created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertRule'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+    get:
+      summary: List alert rules
+      operationId: listAlertRules
+      parameters:
+        - in: query
+          name: client_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: pipeline_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: is_enabled
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Alert rule list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AlertRule'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /alert_rules/{rule_id}:
+    parameters:
+      - $ref: '#/components/parameters/RuleId'
+    get:
+      summary: Get alert rule
+      operationId: getAlertRule
+      responses:
+        '200':
+          description: Alert rule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertRule'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+    patch:
+      summary: Update alert rule
+      operationId: updateAlertRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertRuleUpdate'
+      responses:
+        '200':
+          description: Updated alert rule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertRule'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+    delete:
+      summary: Delete alert rule
+      operationId: deleteAlertRule
+      responses:
+        '204':
+          description: Alert rule deleted
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+
+components:
+  parameters:
+    ClientId:
+      in: path
+      name: client_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PipelineId:
+      in: path
+      name: pipeline_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RuleId:
+      in: path
+      name: rule_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    ErrorResponse:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    Platform:
+      type: string
+      enum: [airflow, dbt, cron, vendor_api, custom]
+    PipelineType:
+      type: string
+      enum: [ingestion, transform, quality, export, healthcheck]
+    Environment:
+      type: string
+      enum: [dev, staging, prod]
+    RunStatus:
+      type: string
+      enum: [running, success, failed, canceled, skipped]
+    RuleType:
+      type: string
+      enum: [on_failure, failures_in_window]
+    Channel:
+      type: string
+      enum: [slack, email, webhook]
+
+    Client:
+      type: object
+      required: [id, name, is_active, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ClientCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+
+    ClientUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        is_active:
+          type: boolean
+
+    Pipeline:
+      type: object
+      required:
+        - id
+        - client_id
+        - name
+        - platform
+        - pipeline_type
+        - is_active
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        client_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        platform:
+          $ref: '#/components/schemas/Platform'
+        external_id:
+          type: string
+          nullable: true
+        pipeline_type:
+          $ref: '#/components/schemas/PipelineType'
+        description:
+          type: string
+          nullable: true
+        environment:
+          $ref: '#/components/schemas/Environment'
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PipelineCreate:
+      type: object
+      required: [name, platform, pipeline_type]
+      properties:
+        name:
+          type: string
+        platform:
+          $ref: '#/components/schemas/Platform'
+        external_id:
+          type: string
+          nullable: true
+        pipeline_type:
+          $ref: '#/components/schemas/PipelineType'
+        description:
+          type: string
+          nullable: true
+        environment:
+          $ref: '#/components/schemas/Environment'
+        is_active:
+          type: boolean
+
+    PipelineUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        platform:
+          $ref: '#/components/schemas/Platform'
+        external_id:
+          type: string
+          nullable: true
+        pipeline_type:
+          $ref: '#/components/schemas/PipelineType'
+        description:
+          type: string
+          nullable: true
+        environment:
+          $ref: '#/components/schemas/Environment'
+        is_active:
+          type: boolean
+
+    Run:
+      type: object
+      required:
+        - id
+        - pipeline_id
+        - external_run_id
+        - status
+        - ingested_at
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        pipeline_id:
+          type: string
+          format: uuid
+        external_run_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/RunStatus'
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        duration_seconds:
+          type: integer
+          nullable: true
+          minimum: 0
+        rows_processed:
+          type: integer
+          nullable: true
+          minimum: 0
+        error_message:
+          type: string
+          nullable: true
+        status_reason:
+          type: string
+          nullable: true
+        payload:
+          type: object
+          additionalProperties: true
+          nullable: true
+        ingested_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    RunCreate:
+      type: object
+      required: [status]
+      properties:
+        external_run_id:
+          type: string
+          description: Optional for manual runs; generated if omitted.
+        status:
+          $ref: '#/components/schemas/RunStatus'
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        duration_seconds:
+          type: integer
+          minimum: 0
+          nullable: true
+        rows_processed:
+          type: integer
+          minimum: 0
+          nullable: true
+        error_message:
+          type: string
+          nullable: true
+        status_reason:
+          type: string
+          nullable: true
+        payload:
+          type: object
+          additionalProperties: true
+          nullable: true
+
+    AlertRule:
+      type: object
+      required:
+        - id
+        - rule_type
+        - channel
+        - destination
+        - is_enabled
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        client_id:
+          type: string
+          format: uuid
+          nullable: true
+        pipeline_id:
+          type: string
+          format: uuid
+          nullable: true
+        rule_type:
+          $ref: '#/components/schemas/RuleType'
+        threshold:
+          type: integer
+          nullable: true
+        window_minutes:
+          type: integer
+          nullable: true
+        channel:
+          $ref: '#/components/schemas/Channel'
+        destination:
+          type: string
+        is_enabled:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AlertRuleCreate:
+      type: object
+      required: [rule_type, channel, destination]
+      properties:
+        client_id:
+          type: string
+          format: uuid
+          nullable: true
+        pipeline_id:
+          type: string
+          format: uuid
+          nullable: true
+        rule_type:
+          $ref: '#/components/schemas/RuleType'
+        threshold:
+          type: integer
+          nullable: true
+        window_minutes:
+          type: integer
+          nullable: true
+        channel:
+          $ref: '#/components/schemas/Channel'
+        destination:
+          type: string
+        is_enabled:
+          type: boolean
+
+    AlertRuleUpdate:
+      type: object
+      properties:
+        client_id:
+          type: string
+          format: uuid
+          nullable: true
+        pipeline_id:
+          type: string
+          format: uuid
+          nullable: true
+        rule_type:
+          $ref: '#/components/schemas/RuleType'
+        threshold:
+          type: integer
+          nullable: true
+        window_minutes:
+          type: integer
+          nullable: true
+        channel:
+          $ref: '#/components/schemas/Channel'
+        destination:
+          type: string
+        is_enabled:
+          type: boolean
+
+    ClientRunSummary:
+      type: object
+      required: [client_id, since, until, status_counts, latest_by_pipeline]
+      properties:
+        client_id:
+          type: string
+          format: uuid
+        since:
+          type: string
+          format: date-time
+        until:
+          type: string
+          format: date-time
+        status_counts:
+          type: object
+          additionalProperties:
+            type: integer
+        latest_by_pipeline:
+          type: array
+          items:
+            type: object
+            required: [pipeline_id, pipeline_name, platform, latest_status, latest_run_at]
+            properties:
+              pipeline_id:
+                type: string
+                format: uuid
+              pipeline_name:
+                type: string
+              platform:
+                $ref: '#/components/schemas/Platform'
+              latest_status:
+                $ref: '#/components/schemas/RunStatus'
+              latest_run_at:
+                type: string
+                format: date-time
+                nullable: true
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              example: validation_error
+            message:
+              type: string
+            details:
+              type: array
+              items:
+                type: object
+                required: [field, issue]
+                properties:
+                  field:
+                    type: string
+                  issue:
+                    type: string
