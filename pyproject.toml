@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chm"
+version = "0.1.0"
+description = "Client Health Monitor service"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+  "fastapi>=0.116,<1.0",
+  "pydantic>=2.8,<3.0",
+  "sqlalchemy>=2.0,<3.0",
+  "alembic>=1.13,<2.0",
+  "requests>=2.32,<3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3,<9.0",
+  "pytest-asyncio>=0.23,<1.0",
+  "httpx>=0.27,<1.0",
+  "ruff>=0.6,<1.0",
+]
