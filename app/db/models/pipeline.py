@@ -81,12 +81,22 @@ class Pipeline(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     platform: Mapped[PlatformEnum] = mapped_column(
-        postgresql.ENUM(PlatformEnum, name="platform", create_type=False),
+        postgresql.ENUM(
+            PlatformEnum,
+            name="platform",
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+            create_type=False,
+        ),
         nullable=False,
     )
     external_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     pipeline_type: Mapped[PipelineTypeEnum] = mapped_column(
-        postgresql.ENUM(PipelineTypeEnum, name="pipeline_type", create_type=False),
+        postgresql.ENUM(
+            PipelineTypeEnum,
+            name="pipeline_type",
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+            create_type=False,
+        ),
         nullable=False,
     )
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
