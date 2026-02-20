@@ -80,13 +80,23 @@ class AlertRule(Base):
         nullable=True,
     )
     rule_type: Mapped[RuleTypeEnum] = mapped_column(
-        postgresql.ENUM(RuleTypeEnum, name="rule_type", create_type=False),
+        postgresql.ENUM(
+            RuleTypeEnum,
+            name="rule_type",
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+            create_type=False,
+        ),
         nullable=False,
     )
     threshold: Mapped[int | None] = mapped_column(Integer, nullable=True)
     window_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     channel: Mapped[ChannelEnum] = mapped_column(
-        postgresql.ENUM(ChannelEnum, name="channel", create_type=False),
+        postgresql.ENUM(
+            ChannelEnum,
+            name="channel",
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+            create_type=False,
+        ),
         nullable=False,
     )
     destination: Mapped[str] = mapped_column(String(512), nullable=False)

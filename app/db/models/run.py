@@ -71,7 +71,12 @@ class Run(Base):
     )
     external_run_id: Mapped[str] = mapped_column(postgresql.VARCHAR(255), nullable=False)
     status: Mapped[RunStatusEnum] = mapped_column(
-        postgresql.ENUM(RunStatusEnum, name="run_status", create_type=False),
+        postgresql.ENUM(
+            RunStatusEnum,
+            name="run_status",
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+            create_type=False,
+        ),
         nullable=False,
     )
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
