@@ -9,6 +9,7 @@ from datetime import timezone
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -227,3 +228,87 @@ def test_latest_run_uses_tie_breaker_on_id_desc(engine) -> None:
     assert latest is not None
     assert latest.id == high_uuid
     assert latest.external_run_id == "same-time-high-id"
+
+
+def test_client_summary_endpoint_returns_deterministic_payload(
+    client: TestClient,
+    engine,
+) -> None:
+    with Session(engine) as session:
+        account = create_client(session, name="acme-summary")
+        alpha = create_pipeline(
+            session,
+            client_id=account.id,
+            name="alpha-pipeline",
+            platform=PlatformEnum.AIRFLOW,
+            pipeline_type=PipelineTypeEnum.INGESTION,
+            environment="prod",
+        )
+        beta = create_pipeline(
+            session,
+            client_id=account.id,
+            name="beta-pipeline",
+            platform=PlatformEnum.DBT,
+            pipeline_type=PipelineTypeEnum.TRANSFORM,
+            environment="prod",
+        )
+
+        create_run(
+            session,
+            pipeline_id=alpha.id,
+            external_run_id="alpha-before-window",
+            status=RunStatusEnum.FAILED,
+            started_at=_utc("2026-02-20T09:50:00"),
+        )
+        create_run(
+            session,
+            pipeline_id=alpha.id,
+            external_run_id="alpha-running",
+            status=RunStatusEnum.RUNNING,
+            started_at=_utc("2026-02-20T10:15:00"),
+        )
+        create_run(
+            session,
+            pipeline_id=alpha.id,
+            external_run_id="alpha-success",
+            status=RunStatusEnum.SUCCESS,
+            started_at=_utc("2026-02-20T11:30:00"),
+        )
+        create_run(
+            session,
+            pipeline_id=beta.id,
+            external_run_id="beta-failed",
+            status=RunStatusEnum.FAILED,
+            started_at=_utc("2026-02-20T10:45:00"),
+        )
+        account_id = account.id
+        alpha_id = alpha.id
+        beta_id = beta.id
+        session.commit()
+
+    response = client.get(
+        f"/api/v1/clients/{account_id}/runs/summary",
+        params={
+            "since": "2026-02-20T10:00:00Z",
+            "until": "2026-02-20T12:00:00Z",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["client_id"] == str(account_id)
+    assert payload["status_counts"]["running"] == 1
+    assert payload["status_counts"]["success"] == 1
+    assert payload["status_counts"]["failed"] == 1
+
+    latest_items = payload["latest_by_pipeline"]
+    assert len(latest_items) == 2
+    assert [item["pipeline_name"] for item in latest_items] == [
+        "alpha-pipeline",
+        "beta-pipeline",
+    ]
+
+    by_pipeline = {item["pipeline_id"]: item for item in latest_items}
+    assert by_pipeline[str(alpha_id)]["latest_status"] == "success"
+    assert by_pipeline[str(alpha_id)]["latest_run_at"].startswith("2026-02-20T11:30:00")
+    assert by_pipeline[str(beta_id)]["latest_status"] == "failed"

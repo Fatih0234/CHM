@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter
@@ -13,12 +14,14 @@ from app.db.base import get_db_session
 from app.schemas.client import Client
 from app.schemas.client import ClientCreate
 from app.schemas.client import ClientListResponse
+from app.schemas.client import ClientRunSummary
 from app.schemas.client import ClientUpdate
 from app.services.clients import create_client_service
 from app.services.clients import disable_client_service
 from app.services.clients import get_client_service
 from app.services.clients import list_clients_service
 from app.services.clients import update_client_service
+from app.services.summaries import get_client_run_summary_service
 
 router = APIRouter(prefix="/api/v1", tags=["clients"])
 
@@ -69,3 +72,19 @@ def delete_client_endpoint(
     """Soft-disable a client."""
     disable_client_service(session, client_id)
     return Response(status_code=204)
+
+
+@router.get("/clients/{client_id}/runs/summary", response_model=ClientRunSummary)
+def get_client_run_summary_endpoint(
+    client_id: UUID,
+    since: datetime | None = None,
+    until: datetime | None = None,
+    session: Session = Depends(get_db_session),
+) -> ClientRunSummary:
+    """Get run summary for a client."""
+    return get_client_run_summary_service(
+        session,
+        client_id=client_id,
+        since=since,
+        until=until,
+    )
