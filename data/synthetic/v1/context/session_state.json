@@ -1,0 +1,148 @@
+{
+  "workflow_id": "chm_synthetic_a_to_e_v1",
+  "dataset_version": "v1",
+  "updated_at_utc": "2026-02-21T17:41:18Z",
+  "instructions": [
+    "Execute steps strictly in order A -> B -> C -> D -> E.",
+    "At most one step may be in_progress.",
+    "Each session should execute exactly one next pending step and update this file."
+  ],
+  "steps": [
+    {
+      "id": "A",
+      "name": "normalize_base_files",
+      "status": "completed",
+      "inputs": [
+        "/Volumes/T7/CHM/data/synthetic/v1/base/clients.csv",
+        "/Volumes/T7/CHM/data/synthetic/v1/base/pipelines.csv"
+      ],
+      "outputs": [
+        "/Volumes/T7/CHM/data/synthetic/v1/base/clients.csv",
+        "/Volumes/T7/CHM/data/synthetic/v1/base/pipelines.csv"
+      ],
+      "done_when": [
+        "clients.csv headers are exactly: id,name,is_active,created_at,updated_at",
+        "pipelines.csv headers are exactly: id,client_id,name,platform,external_id,pipeline_type,description,environment,is_active,created_at,updated_at",
+        "platform enum values only: airflow,dbt,cron,vendor_api,custom",
+        "pipeline_type enum values only: ingestion,transform,quality,export,healthcheck"
+      ],
+      "artifacts": {
+        "files_written": [
+          "/Volumes/T7/CHM/data/synthetic/v1/base/clients.csv",
+          "/Volumes/T7/CHM/data/synthetic/v1/base/pipelines.csv"
+        ],
+        "clients_count": 12,
+        "pipelines_count": 44,
+        "summary": "normalized clients/pipelines to CHM contract",
+        "pass": true
+      }
+    },
+    {
+      "id": "B",
+      "name": "build_id_registry",
+      "status": "completed",
+      "inputs": [
+        "/Volumes/T7/CHM/data/synthetic/v1/base/clients.csv",
+        "/Volumes/T7/CHM/data/synthetic/v1/base/pipelines.csv"
+      ],
+      "outputs": [
+        "/Volumes/T7/CHM/data/synthetic/v1/context/id_registry.csv"
+      ],
+      "done_when": [
+        "id_registry.csv exists and includes client and pipeline rows",
+        "all pipeline parent_entity_id values map to existing client IDs"
+      ],
+      "artifacts": {
+        "files_written": [
+          "/Volumes/T7/CHM/data/synthetic/v1/context/id_registry.csv"
+        ],
+        "client_rows": 12,
+        "pipeline_rows": 44,
+        "summary": "built deterministic id registry for clients/pipelines",
+        "pass": true
+      }
+    },
+    {
+      "id": "C",
+      "name": "generate_runs_batch",
+      "status": "completed",
+      "inputs": [
+        "/Volumes/T7/CHM/data/synthetic/v1/context/id_registry.csv"
+      ],
+      "outputs": [
+        "/Volumes/T7/CHM/data/synthetic/v1/batches/runs_20260221_batch01.csv"
+      ],
+      "done_when": [
+        "runs batch exists with >= 2000 rows",
+        "all pipeline_id values map to registry pipeline IDs",
+        "status values only: running,success,failed,canceled,skipped"
+      ],
+      "artifacts": {
+        "files_written": [
+          "/Volumes/T7/CHM/data/synthetic/v1/batches/runs_20260221_batch01.csv"
+        ],
+        "rows": 2500,
+        "status_counts": {
+          "success": 2005,
+          "canceled": 77,
+          "failed": 329,
+          "running": 34,
+          "skipped": 55
+        },
+        "summary": "generated runs batch with incident and latency patterns",
+        "pass": true
+      }
+    },
+    {
+      "id": "D",
+      "name": "generate_alert_rules",
+      "status": "completed",
+      "inputs": [
+        "/Volumes/T7/CHM/data/synthetic/v1/context/id_registry.csv"
+      ],
+      "outputs": [
+        "/Volumes/T7/CHM/data/synthetic/v1/base/alert_rules.csv"
+      ],
+      "done_when": [
+        "alert_rules.csv exists with rule_type/channel values in allowed enums",
+        "all non-null client_id/pipeline_id map to registry IDs"
+      ],
+      "artifacts": {
+        "files_written": [
+          "/Volumes/T7/CHM/data/synthetic/v1/base/alert_rules.csv"
+        ],
+        "rows": 35,
+        "enabled_rows": 31,
+        "summary": "generated alert rules across slack/email/webhook channels",
+        "pass": true
+      }
+    },
+    {
+      "id": "E",
+      "name": "validate_all_csvs",
+      "status": "completed",
+      "inputs": [
+        "/Volumes/T7/CHM/data/synthetic/v1/base/clients.csv",
+        "/Volumes/T7/CHM/data/synthetic/v1/base/pipelines.csv",
+        "/Volumes/T7/CHM/data/synthetic/v1/context/id_registry.csv",
+        "/Volumes/T7/CHM/data/synthetic/v1/batches/runs_20260221_batch01.csv",
+        "/Volumes/T7/CHM/data/synthetic/v1/base/alert_rules.csv"
+      ],
+      "outputs": [
+        "/Volumes/T7/CHM/data/synthetic/v1/context/validation_report.csv"
+      ],
+      "done_when": [
+        "validation_report.csv exists",
+        "first data row is either ok,validation passed or includes detailed issues"
+      ],
+      "artifacts": {
+        "files_written": [
+          "/Volumes/T7/CHM/data/synthetic/v1/context/validation_report.csv"
+        ],
+        "issues": 0,
+        "summary": "validation completed",
+        "pass": true
+      }
+    }
+  ]
+}

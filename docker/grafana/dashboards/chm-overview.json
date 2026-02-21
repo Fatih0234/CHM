@@ -1,0 +1,199 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "chm-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "chm-postgres"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  $__timeGroupAlias(COALESCE(r.finished_at, r.started_at, r.created_at), '1h'),\n  COUNT(*) AS failed_runs\nFROM runs r\nWHERE r.status = 'failed'\n  AND $__timeFilter(COALESCE(r.finished_at, r.started_at, r.created_at))\nGROUP BY 1\nORDER BY 1;",
+          "refId": "A"
+        }
+      ],
+      "title": "Failures Over Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "chm-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "chm-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH latest_run AS (\n  SELECT\n    r.*,\n    ROW_NUMBER() OVER (\n      PARTITION BY r.pipeline_id\n      ORDER BY r.started_at DESC NULLS LAST, r.finished_at DESC NULLS LAST, r.id DESC\n    ) AS rn\n  FROM runs r\n)\nSELECT\n  c.name AS client_name,\n  p.name AS pipeline_name,\n  p.platform,\n  lr.status AS latest_status,\n  COALESCE(lr.started_at, lr.finished_at, lr.created_at) AS last_run_time\nFROM pipelines p\nJOIN clients c ON c.id = p.client_id\nLEFT JOIN latest_run lr ON lr.pipeline_id = p.id AND lr.rn = 1\nWHERE p.is_active = TRUE\n  AND c.is_active = TRUE\nORDER BY c.name, p.name;",
+          "refId": "A"
+        }
+      ],
+      "title": "Latest Status Per Pipeline",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "chm-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 3,
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "chm-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  c.id AS client_id,\n  c.name AS client_name,\n  SUM(CASE WHEN r.status = 'failed'\n            AND COALESCE(r.finished_at, r.started_at, r.created_at) >= now() - interval '24 hours'\n           THEN 1 ELSE 0 END) AS failed_24h,\n  SUM(CASE WHEN r.status = 'failed'\n            AND COALESCE(r.finished_at, r.started_at, r.created_at) >= now() - interval '7 days'\n           THEN 1 ELSE 0 END) AS failed_7d\nFROM clients c\nLEFT JOIN pipelines p ON p.client_id = c.id\nLEFT JOIN runs r ON r.pipeline_id = p.id\nGROUP BY c.id, c.name\nORDER BY failed_24h DESC, failed_7d DESC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Failure Counts Per Client",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "chm-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 4,
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "chm-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  c.name AS client_name,\n  p.name AS pipeline_name,\n  p.platform,\n  COUNT(*) FILTER (WHERE r.status = 'failed') AS failure_count,\n  COUNT(*) AS total_runs,\n  CASE\n    WHEN COUNT(*) = 0 THEN 0\n    ELSE ROUND((COUNT(*) FILTER (WHERE r.status = 'failed'))::numeric / COUNT(*), 4)\n  END AS failure_rate\nFROM pipelines p\nJOIN clients c ON c.id = p.client_id\nLEFT JOIN runs r ON r.pipeline_id = p.id\n  AND COALESCE(r.finished_at, r.started_at, r.created_at) >= now() - interval '30 days'\nGROUP BY c.name, p.name, p.platform\nORDER BY failure_count DESC, failure_rate DESC, total_runs DESC\nLIMIT 20;",
+          "refId": "A"
+        }
+      ],
+      "title": "Top Flaky Pipelines (30d)",
+      "type": "table"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "chm",
+    "operations"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "utc",
+  "title": "CHM Overview",
+  "uid": "chm-overview",
+  "version": 1,
+  "weekStart": ""
+}
