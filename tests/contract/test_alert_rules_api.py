@@ -68,7 +68,8 @@ def _assert_alert_rule_contract(payload: dict) -> None:
 
 
 def _create_client(test_client: TestClient, name: str) -> dict:
-    response = test_client.post(f"{API_PREFIX}/clients", json={"name": name})
+    unique_name = f"{name}-{uuid.uuid4().hex[:8]}"
+    response = test_client.post(f"{API_PREFIX}/clients", json={"name": unique_name})
     assert response.status_code == 201
     return response.json()
 
@@ -187,4 +188,3 @@ def test_alert_rule_validation_contract_on_failure_allows_empty_threshold_and_wi
     _assert_alert_rule_contract(payload)
     assert payload["threshold"] is None
     assert payload["window_minutes"] is None
-
