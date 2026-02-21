@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import importlib
+import logging
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,7 @@ from app.db.models.pipeline import PlatformEnum
 from app.db.models.run import Run
 from app.db.repository.clients import create_client
 from app.db.repository.pipelines import create_pipeline
+from app.core import config as config_module
 
 ROOT = Path(__file__).resolve().parents[2]
 ALEMBIC_BIN = ROOT / ".venv" / "bin" / "alembic"
@@ -183,3 +185,78 @@ def test_ingestion_upsert_replay_does_not_create_duplicates(engine) -> None:
     assert len({row.external_run_id for row in rows}) == 2
     assert {row.status.value for row in rows} == {"success", "failed"}
     assert all(row.ingested_at is not None for row in rows)
+
+
+def test_ingestion_trigger_logging_redacts_partner_token(
+    engine,
+    client,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    external_pipeline_id = "vendor-pipe-logging-001"
+    pages = {
+        external_pipeline_id: {
+            None: {
+                "runs": [_event("run-logging-001", "success", "2026-02-20T12:00:00Z")],
+                "next_cursor": None,
+            }
+        }
+    }
+
+    with Session(engine) as session:
+        _seed_external_pipeline(session, external_id=external_pipeline_id)
+
+    class _PartnerClientStub:
+        def __init__(
+            self,
+            *,
+            base_url: str,
+            api_token: str,
+            timeout_seconds: float,
+            max_retries: int,
+            backoff_seconds: float,
+        ) -> None:
+            assert base_url == "https://partner.example.com"
+            assert api_token == "super-secret-token"
+            assert timeout_seconds == 7.0
+            assert max_retries == 2
+            assert backoff_seconds == 0.5
+            self._delegate = FakePartnerClient(pages)
+
+        def fetch_runs(
+            self,
+            pipeline_external_id: str,
+            cursor: str | None = None,
+        ) -> dict[str, Any]:
+            return self._delegate.fetch_runs(pipeline_external_id, cursor=cursor)
+
+    monkeypatch.setenv("CHM_PARTNER_API_BASE_URL", "https://partner.example.com")
+    monkeypatch.setenv("CHM_PARTNER_API_TOKEN", "super-secret-token")
+    monkeypatch.setenv("CHM_HTTP_TIMEOUT_SECONDS", "7")
+    monkeypatch.setenv("CHM_HTTP_MAX_RETRIES", "2")
+    monkeypatch.setenv("CHM_HTTP_BACKOFF_SECONDS", "0.5")
+    config_module.get_ingestion_settings.cache_clear()
+    monkeypatch.setattr("app.api.ingestion.PartnerIngestionClient", _PartnerClientStub)
+
+    caplog.set_level(logging.INFO, logger="app.api.ingestion")
+    response = client.post("/api/v1/ingestion/runs/sync")
+    config_module.get_ingestion_settings.cache_clear()
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "pipelines_processed": 1,
+        "pages_processed": 1,
+        "runs_processed": 1,
+    }
+    assert "super-secret-token" not in caplog.text
+    assert "<redacted>" in caplog.text
+
+    with Session(engine) as session:
+        rows = list(
+            session.scalars(
+                select(Run)
+                .where(Run.external_run_id == "run-logging-001")
+                .order_by(Run.id.asc())
+            )
+        )
+    assert len(rows) == 1
