@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from datetime import datetime
+from datetime import timezone
 from uuid import UUID
 
 from sqlalchemy import Select
 from sqlalchemy import desc
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.db.models.run import Run
@@ -139,4 +141,61 @@ def update_run(
 
     session.flush()
     session.refresh(run)
+    return run
+
+
+def upsert_run(
+    session: Session,
+    *,
+    pipeline_id: UUID,
+    external_run_id: str,
+    status: RunStatusEnum,
+    started_at: datetime | None = None,
+    finished_at: datetime | None = None,
+    duration_seconds: int | None = None,
+    rows_processed: int | None = None,
+    error_message: str | None = None,
+    status_reason: str | None = None,
+    payload: dict | None = None,
+    ingested_at: datetime | None = None,
+) -> Run:
+    """Insert or update a run keyed by `(pipeline_id, external_run_id)`."""
+    status_value = status.value if isinstance(status, RunStatusEnum) else status
+    now = ingested_at or datetime.now(timezone.utc)
+
+    insert_stmt = insert(Run).values(
+        pipeline_id=pipeline_id,
+        external_run_id=external_run_id,
+        status=status_value,
+        started_at=started_at,
+        finished_at=finished_at,
+        duration_seconds=duration_seconds,
+        rows_processed=rows_processed,
+        error_message=error_message,
+        status_reason=status_reason,
+        payload=payload,
+        ingested_at=now,
+        updated_at=now,
+    )
+
+    upsert_stmt = insert_stmt.on_conflict_do_update(
+        constraint="uq_runs_pipeline_id_external_run_id",
+        set_={
+            "status": status_value,
+            "started_at": started_at,
+            "finished_at": finished_at,
+            "duration_seconds": duration_seconds,
+            "rows_processed": rows_processed,
+            "error_message": error_message,
+            "status_reason": status_reason,
+            "payload": payload,
+            "ingested_at": now,
+            "updated_at": now,
+        },
+    ).returning(Run.id)
+
+    run_id = session.execute(upsert_stmt).scalar_one()
+    run = session.get(Run, run_id)
+    if run is None:
+        raise RuntimeError("Upsert did not return a persisted run")
     return run
