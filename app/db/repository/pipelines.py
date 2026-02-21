@@ -69,6 +69,20 @@ def list_pipelines(
     return list(session.scalars(stmt))
 
 
+def list_ingestion_pipelines_with_external_id(
+    session: Session,
+    *,
+    only_active: bool = True,
+) -> list[Pipeline]:
+    """List pipelines eligible for external ingestion sync."""
+    stmt = select(Pipeline).where(Pipeline.external_id.is_not(None))
+    stmt = stmt.where(Pipeline.pipeline_type == PipelineTypeEnum.INGESTION)
+    if only_active:
+        stmt = stmt.where(Pipeline.is_active.is_(True))
+    stmt = stmt.order_by(Pipeline.created_at.asc())
+    return list(session.scalars(stmt))
+
+
 def update_pipeline(
     session: Session,
     pipeline: Pipeline,
