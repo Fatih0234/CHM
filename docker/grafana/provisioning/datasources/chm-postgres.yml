@@ -1,0 +1,17 @@
+apiVersion: 1
+
+datasources:
+  - name: CHM Postgres
+    uid: chm-postgres
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    user: postgres
+    isDefault: true
+    secureJsonData:
+      password: postgres
+    jsonData:
+      database: chm
+      sslmode: disable
+      postgresVersion: 1500
+      timescaledb: false

@@ -24,6 +24,9 @@ dev = [
   "ruff>=0.6,<1.0",
 ]
 
+[project.scripts]
+chm-synthetic-orchestrator = "app.synthetic.orchestrator:main"
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["app*"]
