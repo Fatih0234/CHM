@@ -3,12 +3,14 @@
 from fastapi import FastAPI
 
 from app.api.clients import router as clients_router
+from app.api.pipelines import router as pipelines_router
 from app.core.errors import register_error_handlers
 from app.db import models as _models  # noqa: F401
 
 app = FastAPI(title="CHM")
 register_error_handlers(app)
 app.include_router(clients_router)
+app.include_router(pipelines_router)
 
 
 @app.get("/health")
