@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 
 from app.api.clients import router as clients_router
+from app.api.ingestion import router as ingestion_router
 from app.api.pipelines import router as pipelines_router
 from app.api.runs import router as runs_router
 from app.core.errors import register_error_handlers
@@ -13,6 +14,7 @@ register_error_handlers(app)
 app.include_router(clients_router)
 app.include_router(pipelines_router)
 app.include_router(runs_router)
+app.include_router(ingestion_router)
 
 
 @app.get("/health")
